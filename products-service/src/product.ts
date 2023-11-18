@@ -4,10 +4,10 @@ export class Product {
     public description?: string;
     public price?: number;
 
-    constructor(id: string, title: string, decription?: string, price?: number) {
+    constructor(id: string, title: string, description?: string, price?: number) {
         this.id = id;
         this.title = title;
-        this.description = this.description;
+        this.description = description;
         this.price = price;
     }
 }
