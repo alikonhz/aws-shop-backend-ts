@@ -5,6 +5,7 @@ import * as awslambda from 'aws-cdk-lib/aws-lambda';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as apigw from '@aws-cdk/aws-apigatewayv2-alpha';
 import * as path from 'path';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 import { Construct } from 'constructs';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
@@ -40,11 +41,15 @@ export class ProductsServiceStack extends cdk.Stack {
 
 export class DynamoDbProps {
   productsTable: string;
+  productsArn: string;
   stocksTable: string;
+  stocksArn: string;
 
-  constructor(productsTable: string, stocksTable: string) {
+  constructor(productsTable: string, productsArn: string, stocksTable: string, stocksArn: string) {
     this.productsTable = productsTable;
+    this.productsArn = productsArn;
     this.stocksTable = stocksTable;
+    this.stocksArn = stocksArn;
   }
 }
 
@@ -59,9 +64,7 @@ export class ProductsDb extends Construct {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       billing: dynamodb.Billing.onDemand(),
-      sortKey: { name: 'name', type: dynamodb.AttributeType.STRING }
-    })
-
+    });
     
     const stocksTable = new dynamodb.TableV2(this, withStage(props, 'Stocks'), {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
@@ -69,7 +72,7 @@ export class ProductsDb extends Construct {
       billing: dynamodb.Billing.onDemand(),
     });
 
-    this.props = new DynamoDbProps(prodTable.tableName, stocksTable.tableName);
+    this.props = new DynamoDbProps(prodTable.tableName, prodTable.tableArn, stocksTable.tableName, stocksTable.tableArn);
   }
 }
 
@@ -110,9 +113,16 @@ export class ProductsApi extends Construct {
       ...this.lambdaProps(props),
       functionName: withStage(props, 'getProductsList'),
       entry: path.join(__dirname, '../src/handlers/getProductsList.ts'),
-      environment: {
-      }
     });
+
+    getProductsListLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:Scan'],
+      resources: [props.productsArn],
+    }));
+    getProductsListLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:Scan'],
+      resources: [props.stocksArn],
+    }));
 
     return {
       integration: new HttpLambdaIntegration(withStage(props, 'GetProductsListIntegration'), getProductsListLambda),
@@ -127,6 +137,16 @@ export class ProductsApi extends Construct {
       functionName: withStage(props, 'getProductsById'),
       entry: path.join(__dirname, '../src/handlers/getProductById.ts'),
     });
+
+    getProductsByIdLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem'],
+      resources: [props.productsArn],
+    }));
+    getProductsByIdLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:GetItem'],
+      resources: [props.stocksArn],
+    }));
+
 
     return {
       integration: new HttpLambdaIntegration(withStage(props, 'GetProductsListIntegration'), getProductsByIdLambda),
