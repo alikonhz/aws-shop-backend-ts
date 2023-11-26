@@ -9,7 +9,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "swagger": "npx ts-node src/swagger.ts > openapi.yaml"
+    "swagger": "npx ts-node src/swagger.ts > openapi.yaml",
+    "import-products": "npx ts-node src/generate-products.ts"
   },
   "devDependencies": {
     "@aws-cdk/aws-apigatewayv2-alpha": "^2.109.0-alpha.0",
