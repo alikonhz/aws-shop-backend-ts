@@ -61,13 +61,13 @@ export class ProductsDb extends Construct {
     super(scope, id)
 
     const prodTable = new dynamodb.TableV2(this, withStage(props, 'Products'), {
-      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'productid', type: dynamodb.AttributeType.STRING },
       tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       billing: dynamodb.Billing.onDemand(),
     });
     
     const stocksTable = new dynamodb.TableV2(this, withStage(props, 'Stocks'), {
-      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'productid', type: dynamodb.AttributeType.STRING },
       tableClass: dynamodb.TableClass.STANDARD_INFREQUENT_ACCESS,
       billing: dynamodb.Billing.onDemand(),
     });
@@ -102,6 +102,7 @@ export class ProductsApi extends Construct {
 
     api.addRoutes(this.createProductsListRoute(props));
     api.addRoutes(this.createProductByIdRoute(props));
+    api.addRoutes(this.createNewProductRoute(props));
 
     new cdk.CfnOutput(this, withStage(props, 'Products-API-URL'), {
       value: api.apiEndpoint,
@@ -117,11 +118,7 @@ export class ProductsApi extends Construct {
 
     getProductsListLambda.addToRolePolicy(new iam.PolicyStatement({
       actions: ['dynamodb:Scan'],
-      resources: [props.productsArn],
-    }));
-    getProductsListLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:Scan'],
-      resources: [props.stocksArn],
+      resources: [props.productsArn,props.stocksArn],
     }));
 
     return {
@@ -129,6 +126,24 @@ export class ProductsApi extends Construct {
       path: '/products',
       methods: [apigw.HttpMethod.GET],
     };
+  }
+
+  private createNewProductRoute(props: ProductsApiOptions): ApiGwIntegration {
+    const createProductLambda = new NodejsFunction(this, withStage(props, 'CreateProductLambda'), {
+      ...this.lambdaProps(props),
+      functionName: withStage(props, "createProduct"),
+      entry: path.join(__dirname, '../src/handlers/createProduct.ts'),
+    });
+    createProductLambda.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [props.productsArn, props.stocksArn]
+    }));
+
+    return {
+      integration: new HttpLambdaIntegration(withStage(props, 'CreateProductIntegration'), createProductLambda),
+      path: '/products',
+      methods: [apigw.HttpMethod.POST, apigw.HttpMethod.PUT],
+    }
   }
 
   private createProductByIdRoute(props: ProductsApiOptions): ApiGwIntegration {
@@ -139,12 +154,8 @@ export class ProductsApi extends Construct {
     });
 
     getProductsByIdLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:GetItem'],
-      resources: [props.productsArn],
-    }));
-    getProductsByIdLambda.addToRolePolicy(new iam.PolicyStatement({
-      actions: ['dynamodb:GetItem'],
-      resources: [props.stocksArn],
+      actions: ['dynamodb:BatchGetItem', 'dynamodb:GetItem'],
+      resources: [props.productsArn, props.stocksArn],
     }));
 
 

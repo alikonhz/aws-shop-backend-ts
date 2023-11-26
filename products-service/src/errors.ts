@@ -26,3 +26,10 @@ function toErrorWithMessage(maybeError: unknown): ErrorWithMessage {
 export function getErrorMessage(error: unknown) {
     return toErrorWithMessage(error).message;
 }
+
+export class ValidationError {
+    errors: string[];
+    constructor(errors: string[]) {
+        this.errors = errors;
+    }
+}

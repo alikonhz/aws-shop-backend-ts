@@ -1,11 +1,11 @@
 export class Product {
-    public id: string;
+    public productid: string;
     public title: string;
     public description?: string;
     public price?: number;
 
-    constructor(id: string, title: string, description?: string, price?: number) {
-        this.id = id;
+    constructor(productid: string, title: string, description?: string, price?: number) {
+        this.productid = productid;
         this.title = title;
         this.description = description;
         this.price = price;
