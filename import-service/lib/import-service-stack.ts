@@ -5,6 +5,7 @@ import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-node
 import path = require('path');
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { AuthorizationType, Cors, LambdaIntegration, LambdaRestApi, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 
 export interface ImportStackOptions extends cdk.StackProps {
   stage: string
@@ -50,8 +51,27 @@ export class ImportServiceStack extends cdk.Stack {
         S3_BUCKET: importBucket.bucketName,
       }
     });
-
     importBucket.grantPut(importLambda);
+
+    const importFileParser = new NodejsFunction(this, withStage(props, 'ImportFileParser'), {
+      ...this.lambdaProps(props),
+      functionName: withStage(props, 'importFileParser'),
+      entry: path.join(__dirname, '../src/handlers/importFileParser.ts'),
+      environment: {
+        S3_BUCKET: importBucket.bucketName,
+      },
+    });
+    importBucket.grantDelete(importFileParser);
+    importBucket.grantPut(importFileParser);
+    importBucket.grantReadWrite(importFileParser);
+
+    importBucket.addEventNotification(
+      s3.EventType.OBJECT_CREATED,
+      new LambdaDestination(importFileParser),
+      {
+        prefix: 'uploaded/',
+      }
+    );
 
     const restApi = new RestApi(this, withStage(props, 'ImportProductsRestApi-id'), {
       restApiName: withStage(props, 'ImportProductsRestApi-name'),

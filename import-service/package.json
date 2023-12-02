@@ -32,6 +32,7 @@
     "@aws-sdk/s3-request-presigner": "^3.462.0",
     "aws-cdk-lib": "2.109.0",
     "constructs": "^10.0.0",
+    "csv-parser": "^3.0.0",
     "js-yaml": "^4.1.0",
     "lodash": "^4.17.21",
     "source-map-support": "^0.5.21",
