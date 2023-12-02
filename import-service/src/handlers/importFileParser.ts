@@ -1,10 +1,9 @@
 import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, S3, S3Client } from "@aws-sdk/client-s3";
-import { S3Event } from "aws-lambda";
 import { buildResponse } from "../../utils";
 import { Readable } from "stream";
 import csvParser = require("csv-parser");
 
-export const handler = async (event: S3Event) => {
+export const handler = async (event: any) => {
     console.log('importFileParser: starting')
     console.log('importProductsFile: event data: ', event);
 
@@ -24,18 +23,31 @@ export const handler = async (event: S3Event) => {
 
         const readable = resp.Body as Readable;
         
-        readable.pipe(csvParser())
-            .on('data', (row) => {
-                console.log('CSV row:', row);
-            })
-            .on('end', () => {
-                console.log('CSV EOF');
-            })
-            .on('error', (error) => {
-                console.error('error occurred while parsing CSV file:', error);
+        if (readable == null) {
+            return buildResponse(500, {
+                error: 'unable to open S3 object as Readable',
             });
-
+        }
+        
         const targetBucket = process.env.S3_BUCKET!;
+
+        const promise = new Promise<string>((resolve, reject) => {
+            readable.pipe(csvParser())
+                .on('data', (row) => {
+                    console.log('CSV row:', row);
+                })
+                .on('end', () => {
+                    console.log('CSV EOF');
+                    resolve('done');
+                })
+                .on('error', (error) => {
+                    console.error('error occurred while parsing CSV file:', error);
+                    reject(error);
+                });
+        });
+        
+        const result = await promise;
+
         const copyCommand = new CopyObjectCommand({
             CopySource: `/${bucket}/${key}`,
             Bucket: targetBucket,
@@ -63,6 +75,11 @@ export const handler = async (event: S3Event) => {
         // we can't do anything if it fails so just report the return code
         console.log('file delete response: ', deleteResponse.$metadata.httpStatusCode);
 
+        const body: FileParserResponse = {
+            copyResult: copyResponse.VersionId,
+            deleteResult: deleteResponse.VersionId,
+            parseResult: result,
+        };
         return {
             statusCode: 200,
             headers: {
@@ -70,10 +87,16 @@ export const handler = async (event: S3Event) => {
                 'Access-Control-Allow-Headers': '*',
                 'Content-Type': 'text/plain',
             },
-            body: "",
+            body: body,
         }
     } catch(err) {
         console.error(err);
         return buildResponse(500, err);
     }
+}
+
+export interface FileParserResponse {
+    copyResult?: string;
+    deleteResult?: string;
+    parseResult?: string;
 }
