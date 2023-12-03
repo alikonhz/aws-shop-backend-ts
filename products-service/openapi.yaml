@@ -1,0 +1,69 @@
+info:
+  title: Products service API
+  version: 1.0.0
+  description: Products service API
+swagger: '2.0'
+tags:
+  - name: products
+    description: Get products
+schemes:
+  - https
+paths:
+  /products/{productId}:
+    get:
+      tags:
+        - products
+      summary: Get a product by ID
+      description: Retrieve product details based on the provided product ID.
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          description: The ID of the product to retrieve.
+          type: string
+      responses:
+        '200':
+          description: Successful response with the product details
+          schema:
+            $ref: '#/definitions/Product'
+        '400':
+          description: Bad request. The product ID is required.
+        '404':
+          description: The requested product ID does not exist.
+        '500':
+          description: Internal server error.
+  /products:
+    get:
+      tags:
+        - products
+      summary: List products
+      description: Retrieve all products
+      produces:
+        - application/json
+      responses:
+        '200':
+          description: Successful response with all available products.
+          schema:
+            type: array
+            items:
+              $ref: '#/definitions/Product'
+definitions:
+  Product:
+    type: object
+    required:
+      - id
+      - title
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+      description:
+        type: string
+      price:
+        type: number
+responses: {}
+parameters: {}
+securityDefinitions: {}
