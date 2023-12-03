@@ -3,7 +3,7 @@ export const buildResponse = (statusCode: number, body: any) => ({
     headers: {
         //'Access-Control-Allow-Credentials': true, //TODO: 
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-ALlow-Headers': '*'
+        'Access-Control-Allow-Headers': '*'
     },
     body: JSON.stringify(body)
 });
