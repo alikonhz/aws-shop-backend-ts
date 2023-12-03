@@ -5,7 +5,7 @@ import csvParser = require("csv-parser");
 
 export const handler = async (event: any) => {
     console.log('importFileParser: starting')
-    console.log('importProductsFile: event data: ', event);
+    console.log('importFileParser: event data: ', event);
 
     try {
 
