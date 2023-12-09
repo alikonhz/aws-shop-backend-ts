@@ -23,7 +23,7 @@ describe('getProductById', () => {
   });
 
   it('should return 200 with product details if product exists', async () => {
-    const mockProductId = allProducts[0].id;
+    const mockProductId = allProducts[0].productid;
     const mockEvent = {
       pathParameters: {
         productId: mockProductId,
@@ -35,7 +35,7 @@ describe('getProductById', () => {
   });
 
   it('should return 500 for unexpected errors', async () => {
-    const mockProductId = allProducts[0].id;
+    const mockProductId = allProducts[0].productid;
     const mockEvent = {
       pathParameters: {
         productId: mockProductId,

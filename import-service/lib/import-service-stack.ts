@@ -2,10 +2,11 @@ import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as awslambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
-import path = require('path');
+import * as path from 'path';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { AuthorizationType, Cors, LambdaIntegration, LambdaRestApi, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 export interface ImportStackOptions extends cdk.StackProps {
   stage: string
@@ -27,6 +28,7 @@ export class ImportServiceStack extends cdk.Stack {
   };
 
   constructor(scope: Construct, id: string, props: ImportStackOptions) {
+
     super(scope, id, props);
 
     const importBucket = new s3.Bucket(this, withStage(props, 'import-bucket-id-ts'), {
@@ -53,14 +55,21 @@ export class ImportServiceStack extends cdk.Stack {
     });
     importBucket.grantPut(importLambda);
 
+    const lambdaPath = path.join(__dirname, '../src/handlers/importFileParser.ts');
+    console.log('lambda path: ', lambdaPath);
     const importFileParser = new NodejsFunction(this, withStage(props, 'ImportFileParser'), {
       ...this.lambdaProps(props),
       functionName: withStage(props, 'importFileParser'),
-      entry: path.join(__dirname, '../src/handlers/importFileParser.ts'),
+      entry: lambdaPath,
       environment: {
         S3_BUCKET: importBucket.bucketName,
+        SQS_QUEUE_URL: process.env.SQS_QUEUE_URL!,
       },
     });
+    importFileParser.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sqs:sendmessage'],
+      resources: [process.env.SQS_QUEUE_ARN!],
+    }));
     importBucket.grantDelete(importFileParser);
     importBucket.grantPut(importFileParser);
     importBucket.grantReadWrite(importFileParser);

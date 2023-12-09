@@ -3,6 +3,11 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ProductsServiceStack } from '../lib/products-service-stack';
 
+import * as dotenv from 'dotenv';
+
+dotenv.config({path: '.env'});
+console.log('SNS_TARGET_EMAIL: ', process.env.SNS_TARGET_EMAIL);
+
 const app = new cdk.App();
 new ProductsServiceStack(app, 'PROD-ProductsServiceStack', {
   stage: 'PROD'
