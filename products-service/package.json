@@ -11,7 +11,8 @@
     "cdk": "cdk",
     "swagger": "npx ts-node src/swagger.ts > openapi.yaml",
     "import-products": "npx ts-node src/generate-products.ts",
-    "cdk-deploy-test": "cdk deploy TEST-ProductsServiceStack"
+    "cdk-deploy-test": "cdk deploy TEST-ProductsServiceStack",
+    "cdk-deploy-prod": "cdk deploy PROD-ProductsServiceStack"
   },
   "devDependencies": {
     "@aws-cdk/aws-apigatewayv2-alpha": "^2.109.0-alpha.0",
