@@ -4,7 +4,7 @@ import * as awslambda from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction, NodejsFunctionProps } from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as path from 'path';
 import * as s3 from 'aws-cdk-lib/aws-s3';
-import { AuthorizationType, Cors, LambdaIntegration, LambdaRestApi, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { AuthorizationType, Cors, LambdaIntegration, LambdaRestApi, ResponseType, RestApi, TokenAuthorizer } from 'aws-cdk-lib/aws-apigateway';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import * as iam from 'aws-cdk-lib/aws-iam';
 
@@ -87,22 +87,66 @@ export class ImportServiceStack extends cdk.Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
+        allowHeaders: Cors.DEFAULT_HEADERS,
       },
       deployOptions: {
         stageName: props.stage.toLowerCase(),
       }
     });
 
+    restApi.addGatewayResponse(withStage(props, 'ImportProducts401'), {
+      type: ResponseType.UNAUTHORIZED,
+      statusCode: '401',
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+      }
+    });
+
+    // --- IMPORTANT: START
+    // adding default gateway responses to the REST API
+    // these responses make sure that when auth. lambda returns 401/403 API gateway will return Access-Control-Allow-Origin header
+    restApi.addGatewayResponse(withStage(props, 'ImportProducts403'), {
+      type: ResponseType.ACCESS_DENIED,
+      statusCode: '403',
+      responseHeaders: {
+        'Access-Control-Allow-Origin': "'*'",
+      }
+    });
     const importEndpoint = restApi.root.addResource("import");
     const importIntegration = new LambdaIntegration(importLambda, {
       requestParameters: {
         'integration.request.querystring.name': 'method.request.querystring.name',
-      }
+      },
+    });
+    // --- IMPORTANT: END
+
+    const lambdaAuthArn = cdk.Fn.importValue(withStage(props, 'AuthServiceFunc'));
+    const tokenAuthLambdaFn = awslambda.Function.fromFunctionArn(this, withStage(props, 'basicAuthorizer'), lambdaAuthArn.toString());
+    const invokeTokenRole = new iam.Role(this, withStage(props, 'InvokeAuthLambdaRoleId'), {
+      roleName: withStage(props, 'InvokeAuthLambdaRoleName'),
+      assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com')
+    });
+    const invoiceTokenPolicyStatement = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      sid: withStage(props, 'AllowInvokeAuthLambda').replace('-', ''),
+      resources: [lambdaAuthArn.toString()],
+      actions: ['lambda:InvokeFunction'],
+    });
+    const policy = new iam.Policy(this, withStage(props, 'InvokeAuthLambdaPolicyId'), {
+      policyName: withStage(props, 'InvokeAuthLambdaPolicyName'),
+      statements: [invoiceTokenPolicyStatement],
+      roles: [invokeTokenRole],
     });
 
+    const importAuthorizer = new cdk.aws_apigateway.TokenAuthorizer(this, withStage(props, 'RestApiAuthorizer'), {
+      handler: tokenAuthLambdaFn,
+      assumeRole: invokeTokenRole,
+      resultsCacheTtl: cdk.Duration.millis(0),
+    });
     importEndpoint.addMethod("GET", importIntegration, {
       apiKeyRequired: false,
-      authorizationType: AuthorizationType.NONE,
+      authorizationType: AuthorizationType.CUSTOM,
+      authorizer: importAuthorizer,
       requestParameters: {
         'method.request.querystring.name': true,
       },
