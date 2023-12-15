@@ -6,9 +6,12 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as apigw from '@aws-cdk/aws-apigatewayv2-alpha';
 import * as path from 'path';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subs from 'aws-cdk-lib/aws-sns-subscriptions';
+import * as sqs from "aws-cdk-lib/aws-sqs";
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
 import { Construct } from 'constructs';
-// import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export interface ProductsStackOptions extends cdk.StackProps {
   stage: string
@@ -79,7 +82,7 @@ export class ProductsDb extends Construct {
 export class ProductsApi extends Construct {
 
   private lambdaProps(props: ProductsApiOptions): Partial<NodejsFunctionProps> {
-    return   {
+    return  {
       runtime: awslambda.Runtime.NODEJS_18_X,
       environment: {
         PRODUCT_AWS_REGION: process.env.PRODUCT_AWS_REGION!,
@@ -104,6 +107,7 @@ export class ProductsApi extends Construct {
     api.addRoutes(this.createProductByIdRoute(props));
     api.addRoutes(this.createNewProductRoute(props));
 
+    this.createCatalogBatchProcess(props);
     new cdk.CfnOutput(this, withStage(props, 'Products-API-URL'), {
       value: api.apiEndpoint,
     })
@@ -166,6 +170,55 @@ export class ProductsApi extends Construct {
     };
   }
 
+  private createCatalogBatchProcess(props: ProductsApiOptions) {
+    const queueName = withStage(props, 'CatalogItemsQueue-Name');
+    const sqsQueue = new sqs.Queue(this, withStage(props, 'CatalogItemsQueue'), {
+      queueName: queueName,
+    });
+
+    const snsTopic = new sns.Topic(this, withStage(props, 'CatalogBatchProcess-SNS-TS'));
+
+    const carFilter = {
+      title: sns.SubscriptionFilter.stringFilter({
+        matchPrefixes: ['Car']
+      }),
+    };
+    snsTopic.addSubscription(new subs.EmailSubscription(process.env.SNS_TARGET_EMAIL!));
+    snsTopic.addSubscription(new subs.EmailSubscription(process.env.SNS_TARGET_PRIO_EMAIL!, {filterPolicy: carFilter}));
+
+    const fnProps = { ...this.lambdaProps(props) };
+    fnProps.environment!.SNS_TOPIC = snsTopic.topicArn;
+
+    const catalogBatchProcessFn = new NodejsFunction(this, withStage(props, 'CatalogBatchProcess'), {
+      ...fnProps,
+      functionName: withStage(props, 'catalogBatchProcess'),
+      entry: path.join(__dirname, '../src/handlers/catalogBatchProcess.ts'),
+    });
+    catalogBatchProcessFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['dynamodb:PutItem', 'dynamodb:UpdateItem'],
+      resources: [props.productsArn, props.stocksArn]
+    }));
+    catalogBatchProcessFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sqs:ReceiveMessage'],
+      resources: [sqsQueue.queueArn],
+    }));
+    catalogBatchProcessFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sns:publish'],
+      resources: [snsTopic.topicArn],
+    }));
+
+    catalogBatchProcessFn.addEventSource(new lambdaEventSources.SqsEventSource(sqsQueue, {
+      batchSize: 5,
+      maxBatchingWindow: cdk.Duration.seconds(5),
+    }));
+
+    new cdk.CfnOutput(this, withStage(props, 'SQS_QUEUE_URL'), {
+      value: sqsQueue.queueUrl,
+    });
+    new cdk.CfnOutput(this, withStage(props, 'SQS_QUEUE_ARN'), {
+      value: sqsQueue.queueArn,
+    });
+  }
 }
 
 interface ApiGwIntegration {

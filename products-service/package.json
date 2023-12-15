@@ -10,7 +10,9 @@
     "test": "jest",
     "cdk": "cdk",
     "swagger": "npx ts-node src/swagger.ts > openapi.yaml",
-    "import-products": "npx ts-node src/generate-products.ts"
+    "import-products": "npx ts-node src/generate-products.ts",
+    "cdk-deploy-test": "cdk deploy TEST-ProductsServiceStack",
+    "cdk-deploy-prod": "cdk deploy PROD-ProductsServiceStack"
   },
   "devDependencies": {
     "@aws-cdk/aws-apigatewayv2-alpha": "^2.109.0-alpha.0",
@@ -21,6 +23,9 @@
     "@types/node": "20.9.0",
     "@types/swagger-jsdoc": "^6.0.3",
     "aws-cdk": "2.109.0",
+    "aws-sdk-client-mock": "^3.0.0",
+    "dotenv": "^16.3.1",
+    "esbuild": "^0.19.8",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
@@ -28,6 +33,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.454.0",
+    "@aws-sdk/client-sns": "^3.468.0",
     "@aws-sdk/lib-dynamodb": "^3.454.0",
     "aws-cdk-lib": "2.109.0",
     "constructs": "^10.0.0",

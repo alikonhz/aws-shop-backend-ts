@@ -1,6 +1,7 @@
 import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, S3, S3Client } from "@aws-sdk/client-s3";
 import { buildResponse } from "../../utils";
 import { Readable } from "stream";
+import { SQSClient, SendMessageCommand, SendMessageCommandOutput } from '@aws-sdk/client-sqs';
 import csvParser = require("csv-parser");
 
 export const handler = async (event: any) => {
@@ -30,11 +31,29 @@ export const handler = async (event: any) => {
         }
         
         const targetBucket = process.env.S3_BUCKET!;
-
+        const sqsClient = new SQSClient({});
+        const promiseList: Promise<number>[] = [];
         const promise = new Promise<string>((resolve, reject) => {
             readable.pipe(csvParser())
                 .on('data', (row) => {
-                    console.log('CSV row:', row);
+                    const data = JSON.stringify(row);
+                    const msg = new SendMessageCommand({
+                        QueueUrl: process.env.SQS_QUEUE_URL!,
+                        MessageBody: data,
+                    });
+                    console.log('sending row to SQS: ', data);
+                    const p = new Promise<number>((pRes, pRej) => {
+                        sqsClient.send(msg)
+                                 .then((sendRes: SendMessageCommandOutput) => { 
+                                    console.log('SQS response code: ', sendRes.$metadata.httpStatusCode);
+                                    pRes(sendRes.$metadata.httpStatusCode ?? -1);
+                                }, 
+                                (err: unknown) => { 
+                                    console.error('SQS error: ', err);
+                                    pRej(err);
+                                });
+                    });
+                    promiseList.push(p);
                 })
                 .on('end', () => {
                     console.log('CSV EOF');
@@ -47,6 +66,7 @@ export const handler = async (event: any) => {
         });
         
         const result = await promise;
+        await Promise.all(promiseList);
 
         const copyCommand = new CopyObjectCommand({
             CopySource: `/${bucket}/${key}`,

@@ -2,8 +2,15 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ImportServiceStack } from '../lib/import-service-stack';
+import * as dotenv from 'dotenv';
 
 const app = new cdk.App();
+
+const envFile = `.env.${process.env.NODE_ENV}`;
+console.log('loading env file from ', envFile);
+dotenv.config({path: envFile});
+console.log('SQS_QUEUE_URL: ', process.env.SQS_QUEUE_URL);
+
 new ImportServiceStack(app, 'TEST-ImportServiceStack', {
   stage: 'TEST'
   /* If you don't specify 'env', this stack will be environment-agnostic.
