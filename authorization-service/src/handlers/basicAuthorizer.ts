@@ -21,7 +21,7 @@ export const handler = (event: any, context: Context, callback: Callback) => {
         console.log('pwd: ', pwd);
 
         if (!userName || !pwd) {
-            callback('Unauthorized');
+            callback(null, generatePolicy('<empty>', 'Deny', event.methodArn));
             return;
         }
 
