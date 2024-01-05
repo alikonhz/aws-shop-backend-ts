@@ -73,9 +73,6 @@ func handleFromEnv(envKey string, paths []string, cacheClient *cache.Client) {
 	h1 := func(path string, p http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Headers", "PUT")
-
 			r.Host = targetURL.Host
 
 			t := targetURL.RequestURI()
