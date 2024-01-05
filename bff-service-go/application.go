@@ -16,31 +16,24 @@ func main() {
 		log.Fatalln("failed to load .env file: ", err)
 	}
 
+	log.Println("SERVICE_PRODUCTS_URL: ", os.Getenv("SERVICE_PRODUCTS_URL"))
+	log.Println("SERVICE_CART_URL: ", os.Getenv("SERVICE_CART_URL"))
+
 	handleFromEnv("SERVICE_PRODUCTS_URL", []string{"/products", "/products/"})
 	handleFromEnv("SERVICE_CART_URL", []string{"/cart"})
 
 	http.HandleFunc("/", badGateway)
-	err = http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", os.Getenv("PORT")), nil)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5000"
+	}
+	address := fmt.Sprintf("0.0.0.0:%s", port)
+	log.Println("starting on: ", address)
+
+	err = http.ListenAndServe(address, nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	//e := echo.New()
-	//e.Use(middleware.Logger())
-	//
-	//productsTarget := []*middleware.ProxyTarget{
-	//	{
-	//		URL: productsUrl,
-	//	},
-	//}
-	//pg := e.Group("/products")
-	//pg.Use(middleware.Proxy(middleware.NewRoundRobinBalancer(productsTarget)))
-	//
-	////e.Use(middleware.CORS())
-	//
-	//err = e.Start(fmt.Sprintf("0.0.0.0:%s", os.Getenv("PORT")))
-	//if err != nil {
-	//	log.Fatalln(err)
-	//}
 }
 
 func badGateway(w http.ResponseWriter, r *http.Request) {
