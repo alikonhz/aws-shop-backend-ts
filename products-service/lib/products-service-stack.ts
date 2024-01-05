@@ -214,9 +214,11 @@ export class ProductsApi extends Construct {
 
     new cdk.CfnOutput(this, withStage(props, 'SQS_QUEUE_URL'), {
       value: sqsQueue.queueUrl,
+      exportName: withStage(props, 'SQS-QUEUE-URL')
     });
     new cdk.CfnOutput(this, withStage(props, 'SQS_QUEUE_ARN'), {
       value: sqsQueue.queueArn,
+      exportName: withStage(props, 'SQS-QUEUE-ARN')
     });
   }
 }
